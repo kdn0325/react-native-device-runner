@@ -61,6 +61,8 @@ react-native-device-runner
 
 You can configure build options using one of the following methods:
 
+> **Note:** The tool automatically uses `Debug` for iOS configuration and `debug` for Android variant - these values are hardcoded and don't need to be configured.
+
 ### 1. `app.json` extra section (Expo projects)
 
 ```json
@@ -68,10 +70,8 @@ You can configure build options using one of the following methods:
   "expo": {
     "extra": {
       "IOS_SCHEME": "myapp",
-      "IOS_CONFIGURATION": "Debug",
       "IOS_BUNDLE_ID": "com.mycompany.myapp",
-      "AOS_APP_ID": "com.mycompany.myapp",
-      "AOS_VARIANT": "debug"
+      "AOS_APP_ID": "com.mycompany.myapp"
     }
   }
 }
@@ -81,10 +81,8 @@ You can configure build options using one of the following methods:
 
 ```bash
 IOS_SCHEME=myapp
-IOS_CONFIGURATION=Debug
 IOS_BUNDLE_ID=com.mycompany.myapp
 AOS_APP_ID=com.mycompany.myapp
-AOS_VARIANT=debug
 ```
 
 ### 3. Environment variables
@@ -111,7 +109,7 @@ npx react-native-device-runner
 
 ## 🎯 Example Usage
 
-```bash
+````bash
 $ npx react-native-device-runner
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -119,34 +117,18 @@ $ npx react-native-device-runner
 │              Auto Device Detection & Runner Script                         │
 └─────────────────────────────────────────────────────────────────────────────┘
 
-📋 Initializing environment variables...
-✅ Environment variables initialized
-📋 Reading Expo/React Native configuration...
-✅ Configuration loaded successfully
-──────────────────────────────────────────────────────────────────────────────
-📋 Searching for connected devices...
-✅ iOS device found: a64e6f3a22df699e4df42ec9aa462eeeae7c8be4
-ℹ️ No Android device detected
-──────────────────────────────────────────────────────────────────────────────
-✅ iOS device found! Preparing to run...
-📱 Device UDID: a64e6f3a22df699e4df42ec9aa462eeeae7c8be4
-📱 Scheme: myapp
-📱 Configuration: Debug
-📋 Running with Expo on iOS device...
-```
-
 ## 📝 Configuration Variables
 
 | Variable            | Description             | Default      | Example                 |
 | ------------------- | ----------------------- | ------------ | ----------------------- |
 | `IOS_SCHEME`        | iOS build scheme        | -            | `myapp`                 |
-| `IOS_CONFIGURATION` | iOS build configuration | `Debug`      | `Release`               |
 | `IOS_BUNDLE_ID`     | iOS bundle ID           | -            | `com.mycompany.myapp`   |
 | `IOS_WORKSPACE`     | iOS workspace path      | -            | `ios/MyApp.xcworkspace` |
 | `IOS_DERIVED_DATA`  | iOS build data path     | `.build/ios` | `.build/ios`            |
 | `AOS_APP_ID`        | Android app ID          | -            | `com.mycompany.myapp`   |
 | `AOS_MODULE`        | Android module name     | `app`        | `app`                   |
-| `AOS_VARIANT`       | Android build variant   | `debug`      | `release`               |
+
+> **Note:** The tool automatically uses `Debug` for iOS configuration and `debug` for Android variant. These values are hardcoded and don't need to be configured.
 
 ## Project Type Detection
 
@@ -175,7 +157,7 @@ Try one of these solutions:
 ```bash
 export FORCE_PROJECT_TYPE="react-native-cli"
 npx react-native-device-runner
-```
+````
 
 2. Run with the `--no-bundler` option (for Expo projects):
 
@@ -189,6 +171,8 @@ npx expo run:android --device YOUR_DEVICE_ID --no-bundler
 ```bash
 npx expo install metro metro-resolver
 ```
+
+> **Note:** The tool automatically uses `Debug` build configuration for iOS and `debug` variant for Android - you don't need to specify these values.
 
 ### iOS device not detected
 
