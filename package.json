@@ -7,7 +7,7 @@
   "bin": {
     "rn-device": "./lib/bin.js",
     "rndr": "./lib/bin.js",
-    "expo-device-runner": "./lib/bin.js"
+    "react-native-device-runner": "./lib/bin.js"
   },
   "scripts": {
     "build": "tsc",
