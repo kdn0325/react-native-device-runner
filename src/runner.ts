@@ -1,5 +1,5 @@
 import { execSync, spawn } from "child_process";
-import { existsSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { DeviceInfo, DeviceConfig } from "./types";
 import { Logger } from "./logger";
@@ -7,89 +7,104 @@ import { Logger } from "./logger";
 export class AppRunner {
   private config: DeviceConfig;
   private isExpo: boolean;
-  private projectType: "expo" | "react-native-cli";
+  private projectType: "expo" | "expo-bare" | "react-native-cli";
 
   constructor(config: DeviceConfig) {
     this.config = config;
     this.projectType = this.detectProjectType();
-    this.isExpo = this.projectType === "expo";
+    this.isExpo =
+      this.projectType === "expo" || this.projectType === "expo-bare";
   }
 
   /**
-   * Detect if the project is an Expo project or a React Native CLI project
+   * Detect project type: Expo (managed), Expo (bare), or React Native CLI
    */
-  private detectProjectType(): "expo" | "react-native-cli" {
+  private detectProjectType(): "expo" | "expo-bare" | "react-native-cli" {
     try {
-      // Check if package.json exists and has dependencies
+      // 1. Forced by environment variable
+      const forced = process.env["FORCE_PROJECT_TYPE"];
+      if (
+        forced === "expo" ||
+        forced === "expo-bare" ||
+        forced === "react-native-cli"
+      ) {
+        Logger.info(
+          `Project type forced to ${forced} via environment variable`
+        );
+        return forced;
+      }
+
+      // 2. package.json check
       const packageJsonPath = join(process.cwd(), "package.json");
       if (existsSync(packageJsonPath)) {
-        const packageJson = JSON.parse(
-          execSync(`cat ${packageJsonPath}`, { encoding: "utf8" })
-        );
-        const dependencies = {
-          ...packageJson.dependencies,
-          ...packageJson.devDependencies,
-        };
-
-        // First check if expo is installed
-        if (dependencies.expo) {
-          try {
-            // Verify the expo command works without requiring metro internals
-            execSync("npx expo --help", { stdio: "ignore" });
-            Logger.info("Detected as an Expo project");
-            return "expo";
-          } catch (error) {
-            Logger.warning("Expo package found but expo CLI is not working");
-          }
-        }
-      }
-
-      // Check if app.json or app.config.js file exists
-      const appJsonPath = join(process.cwd(), "app.json");
-      const appConfigPath = join(process.cwd(), "app.config.js");
-      const appConfigTsPath = join(process.cwd(), "app.config.ts");
-
-      if (
-        existsSync(appJsonPath) ||
-        existsSync(appConfigPath) ||
-        existsSync(appConfigTsPath)
-      ) {
-        // Check if the app.json contains expo configuration
-        if (existsSync(appJsonPath)) {
-          try {
-            const appJson = JSON.parse(
-              execSync(`cat ${appJsonPath}`, { encoding: "utf8" })
-            );
-            if (appJson.expo) {
-              Logger.info("Detected as an Expo project from app.json");
-              return "expo";
-            }
-          } catch (error) {
-            // Failed to parse app.json, continue checking
-          }
-        }
-
-        // If we can't determine from app.json, try running expo command
         try {
-          execSync("npx expo --help", { stdio: "ignore" });
-          Logger.info("Detected as an Expo project");
-          return "expo";
-        } catch (error) {
-          Logger.warning("Expo config files found but expo CLI is not working");
+          const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8"));
+          const dependencies = {
+            ...packageJson.dependencies,
+            ...packageJson.devDependencies,
+          };
+
+          const hasExpo = !!dependencies.expo;
+          const hasRN = !!dependencies["react-native"];
+          const hasIos = existsSync(join(process.cwd(), "ios"));
+          const hasAndroid = existsSync(join(process.cwd(), "android"));
+
+          // Expo bare workflow: expo dependency + native ios/android folders
+          if (hasExpo && (hasIos || hasAndroid)) {
+            Logger.info("Detected as Expo Bare Workflow project");
+            return "expo-bare";
+          }
+
+          if (hasExpo) {
+            Logger.info("Detected as Expo Managed Workflow project");
+            return "expo";
+          }
+
+          if (hasRN) {
+            Logger.info(
+              "Detected as React Native CLI project (from package.json)"
+            );
+            return "react-native-cli";
+          }
+        } catch {
+          Logger.warning("Failed to parse package.json");
         }
       }
 
-      // Check for React Native CLI project
+      // 3. app.json check
+      const appJsonPath = join(process.cwd(), "app.json");
+      if (existsSync(appJsonPath)) {
+        try {
+          const appJson = JSON.parse(readFileSync(appJsonPath, "utf8"));
+          if (appJson.expo) {
+            Logger.info(
+              "Detected as Expo Managed Workflow project (from app.json)"
+            );
+            return "expo";
+          } else {
+            Logger.info(
+              "Detected as React Native CLI project (from app.json structure)"
+            );
+            return "react-native-cli";
+          }
+        } catch {
+          Logger.warning("Failed to parse app.json");
+        }
+      }
+
+      // 4. Folder structure check
       const iosDir = join(process.cwd(), "ios");
       const androidDir = join(process.cwd(), "android");
-
       if (existsSync(iosDir) || existsSync(androidDir)) {
-        Logger.info("Detected as a React Native CLI project");
+        Logger.info(
+          "Detected as React Native CLI project (from ios/android folders)"
+        );
         return "react-native-cli";
       }
 
+      // 5. Default fallback
       Logger.warning(
-        "Could not determine project type with certainty, defaulting to React Native CLI"
+        "Could not determine project type. Defaulting to React Native CLI"
       );
       return "react-native-cli";
     } catch (error) {
@@ -121,30 +136,23 @@ export class AppRunner {
       process.exit(10);
     }
 
-    let args: string[] = [];
+    let args: string[];
 
-    if (this.isExpo) {
-      Logger.step("Running with Expo on iOS device...");
-      // Use the safe command approach that doesn't rely on Metro internals
+    if (this.projectType === "expo") {
+      // Managed workflow uses expo run
+      Logger.step("Running with Expo (managed) on iOS device...");
       args = ["expo", "run:ios", "--device", device.udid, "--no-bundler"];
-
-      if (this.config.iosScheme) {
-        args.push("--scheme", this.config.iosScheme);
-      }
-      if (this.config.iosConfiguration) {
-        args.push("--configuration", this.config.iosConfiguration);
-      }
     } else {
-      Logger.step("Running with React Native CLI on iOS device...");
+      // React Native CLI or Expo bare workflow uses react-native run
+      Logger.step(
+        "Running with React Native CLI / Expo Bare Workflow on iOS device..."
+      );
       args = ["react-native", "run-ios", "--udid", device.udid];
-
-      if (this.config.iosScheme) {
-        args.push("--scheme", this.config.iosScheme);
-      }
-      if (this.config.iosConfiguration) {
-        args.push("--configuration", this.config.iosConfiguration);
-      }
     }
+
+    if (this.config.iosScheme) args.push("--scheme", this.config.iosScheme);
+    if (this.config.iosConfiguration)
+      args.push("--configuration", this.config.iosConfiguration);
 
     this.executeCommand("npx", args);
   }
@@ -163,26 +171,23 @@ export class AppRunner {
       process.exit(11);
     }
 
-    let args: string[] = [];
+    let args: string[];
 
-    if (this.isExpo) {
-      Logger.step("Running with Expo on Android device...");
+    if (this.projectType === "expo") {
+      // Managed workflow uses expo run
+      Logger.step("Running with Expo (managed) on Android device...");
       args = ["expo", "run:android", "--device", device.serial, "--no-bundler"];
-      if (this.config.androidVariant) {
-        args.push("--variant", this.config.androidVariant);
-      }
     } else {
-      Logger.step("Running with React Native CLI on Android device...");
+      // React Native CLI or Expo bare workflow uses react-native run
+      Logger.step(
+        "Running with React Native CLI / Expo Bare Workflow on Android device..."
+      );
       args = ["react-native", "run-android", "--deviceId", device.serial];
-      // React Native CLI는 --variant 옵션을 지원하지 않으므로 gradle task 방식 사용
-      if (this.config.androidVariant) {
-        const variant = this.config.androidVariant;
-        const capitalizedVariant =
-          variant.charAt(0).toUpperCase() + variant.slice(1);
-        const task = `app:install${capitalizedVariant}`;
-        Logger.device(`Gradle task: ${task}`);
-        args.push("--task", task);
-      }
+    }
+
+    if (this.config.androidVariant) {
+      args.push(`--variant=${this.config.androidVariant}`);
+      Logger.device(`Using variant: ${this.config.androidVariant}`);
     }
 
     this.executeCommand("npx", args);
@@ -198,24 +203,18 @@ export class AppRunner {
         env: { ...process.env, FORCE_COLOR: "1" },
       });
 
-      // Handle process lifecycle
       child.on("close", (code) => {
         if (code !== 0) {
           Logger.error(`Command execution failed (exit code: ${code})`);
-          // Handle specific exit codes
+
           if (code === 65) {
-            // Often seen with Xcode build errors
             Logger.info(
               "Hint: This could be an Xcode build error. Check the logs above."
             );
           } else if (code === 1) {
-            // Generic error
-            Logger.info(
-              "Hint: If using Expo, try running 'npx expo install' to ensure dependencies are correctly installed."
-            );
+            Logger.info("Hint: If using Expo, try running 'npx expo install'.");
           }
 
-          // Try alternative command if the primary one fails
           if (args[0] === "expo" && args[1]?.startsWith("run:")) {
             Logger.warning(
               "Expo run command failed. Attempting fallback method..."
@@ -229,13 +228,10 @@ export class AppRunner {
 
       child.on("error", (error) => {
         Logger.error(`Command execution error: ${error.message}`);
-
-        // Provide helpful suggestions based on the error
         if (error.message.includes("ENOENT")) {
           Logger.info(
-            "Hint: The command could not be found. Make sure it's installed properly."
+            "Hint: The command could not be found. Make sure it's installed."
           );
-
           if (args[0] === "expo") {
             Logger.info("Try installing Expo CLI: npm install -g expo-cli");
           } else if (args[0] === "react-native") {
@@ -244,13 +240,10 @@ export class AppRunner {
             );
           }
         }
-
         process.exit(1);
       });
     } catch (error) {
       Logger.error(`Command execution failed: ${error}`);
-
-      // Try alternative approaches
       if (args[0] === "expo") {
         Logger.warning("Expo command failed. Attempting fallback method...");
         this.tryFallbackCommand(args);
@@ -264,7 +257,7 @@ export class AppRunner {
     try {
       const platform = originalArgs[1]?.includes("ios") ? "ios" : "android";
       const deviceFlag = platform === "ios" ? "--udid" : "--deviceId";
-      const deviceId = originalArgs[3]; // Get the device ID from the original command
+      const deviceId = originalArgs[3];
 
       if (!deviceId) {
         Logger.error("Device ID not found in original command");
@@ -272,9 +265,7 @@ export class AppRunner {
         return;
       }
 
-      // Use a more direct approach with react-native CLI
       Logger.step(`Trying fallback with React Native CLI for ${platform}...`);
-
       const fallbackArgs: string[] = [
         "react-native",
         `run-${platform}`,
@@ -282,26 +273,18 @@ export class AppRunner {
         deviceId,
       ];
 
-      // iOS 옵션 추가
       if (platform === "ios") {
-        if (this.config.iosScheme) {
+        if (this.config.iosScheme)
           fallbackArgs.push("--scheme", this.config.iosScheme);
-        }
-        if (this.config.iosConfiguration) {
+        if (this.config.iosConfiguration)
           fallbackArgs.push("--configuration", this.config.iosConfiguration);
-        }
-      }
-      // Android 옵션 추가 (React Native CLI는 --variant 대신 gradle task 사용)
-      if (platform === "android" && this.config.androidVariant) {
-        const variant = this.config.androidVariant;
-        const capitalizedVariant =
-          variant.charAt(0).toUpperCase() + variant.slice(1);
-        const task = `app:install${capitalizedVariant}`;
-        Logger.device(`Gradle task: ${task}`);
-        fallbackArgs.push("--task", task);
       }
 
-      // Execute the fallback command
+      if (platform === "android" && this.config.androidVariant) {
+        fallbackArgs.push(`--variant=${this.config.androidVariant}`);
+        Logger.device(`Using variant: ${this.config.androidVariant}`);
+      }
+
       const child = spawn("npx", fallbackArgs, {
         stdio: "inherit",
         cwd: process.cwd(),
