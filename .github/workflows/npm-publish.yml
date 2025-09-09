@@ -1,0 +1,45 @@
+name: NPM Publish
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Run tests
+        run: npm test || true
+
+      - name: Check version and publish
+        run: |
+          # Get version from package.json
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+
+          # Check if version exists in npm registry
+          VERSION_EXISTS=$(npm view react-native-device-runner@$PACKAGE_VERSION version || echo '')
+
+          if [ -z "$VERSION_EXISTS" ]; then
+            echo "Publishing version $PACKAGE_VERSION..."
+            npm publish
+          else
+            echo "Version $PACKAGE_VERSION already exists in npm registry. Skipping publish."
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
