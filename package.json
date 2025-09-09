@@ -1,0 +1,61 @@
+{
+  "name": "react-native-device-runner",
+  "version": "1.0.2",
+  "description": "🚀 자동 기기 감지 & React Native/Expo 앱 실행 스크립트",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "bin": {
+    "rn-device": "./lib/bin.js",
+    "rndr": "./lib/bin.js",
+    "expo-device-runner": "./lib/bin.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "prepublishOnly": "npm run build && chmod +x lib/bin.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "clean": "rm -rf lib"
+  },
+  "keywords": [
+    "react-native",
+    "expo",
+    "device",
+    "ios",
+    "android",
+    "automation",
+    "cli",
+    "mobile",
+    "development",
+    "runner",
+    "typescript"
+  ],
+  "author": "Your Name <your.email@example.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/react-native-device-runner.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/react-native-device-runner/issues"
+  },
+  "homepage": "https://github.com/yourusername/react-native-device-runner#readme",
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "preferGlobal": true,
+  "files": [
+    "bin/",
+    "lib/",
+    "README.md",
+    "LICENSE"
+  ],
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "commander": "^11.0.0",
+    "dotenv": "^16.0.0"
+  }
+}
