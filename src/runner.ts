@@ -158,10 +158,6 @@ export class AppRunner {
     Logger.success("Android device found! Preparing to run...");
     Logger.device(`Device Serial: ${device.serial}`);
 
-    if (this.config.androidVariant) {
-      Logger.device(`Variant: ${this.config.androidVariant}`);
-    }
-
     if (!this.hasCommand("npx")) {
       Logger.error("npx is required");
       process.exit(11);
@@ -171,18 +167,21 @@ export class AppRunner {
 
     if (this.isExpo) {
       Logger.step("Running with Expo on Android device...");
-      // Use the safe command approach that doesn't rely on Metro internals
       args = ["expo", "run:android", "--device", device.serial, "--no-bundler"];
-
       if (this.config.androidVariant) {
         args.push("--variant", this.config.androidVariant);
       }
     } else {
       Logger.step("Running with React Native CLI on Android device...");
       args = ["react-native", "run-android", "--deviceId", device.serial];
-
+      // React Native CLI는 --variant 옵션을 지원하지 않으므로 gradle task 방식 사용
       if (this.config.androidVariant) {
-        args.push("--variant", this.config.androidVariant);
+        const variant = this.config.androidVariant;
+        const capitalizedVariant =
+          variant.charAt(0).toUpperCase() + variant.slice(1);
+        const task = `app:install${capitalizedVariant}`;
+        Logger.device(`Gradle task: ${task}`);
+        args.push("--task", task);
       }
     }
 
@@ -283,7 +282,7 @@ export class AppRunner {
         deviceId,
       ];
 
-      // Add any additional flags
+      // iOS 옵션 추가
       if (platform === "ios") {
         if (this.config.iosScheme) {
           fallbackArgs.push("--scheme", this.config.iosScheme);
@@ -291,10 +290,15 @@ export class AppRunner {
         if (this.config.iosConfiguration) {
           fallbackArgs.push("--configuration", this.config.iosConfiguration);
         }
-      } else {
-        if (this.config.androidVariant) {
-          fallbackArgs.push("--variant", this.config.androidVariant);
-        }
+      }
+      // Android 옵션 추가 (React Native CLI는 --variant 대신 gradle task 사용)
+      if (platform === "android" && this.config.androidVariant) {
+        const variant = this.config.androidVariant;
+        const capitalizedVariant =
+          variant.charAt(0).toUpperCase() + variant.slice(1);
+        const task = `app:install${capitalizedVariant}`;
+        Logger.device(`Gradle task: ${task}`);
+        fallbackArgs.push("--task", task);
       }
 
       // Execute the fallback command
