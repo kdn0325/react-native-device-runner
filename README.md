@@ -95,6 +95,20 @@ export IOS_BUNDLE_ID="com.mycompany.myapp"
 npx react-native-device-runner
 ```
 
+### 4. Force project type
+
+If automatic detection fails or you need to override:
+
+```bash
+# Force Expo mode
+export FORCE_PROJECT_TYPE="expo"
+npx react-native-device-runner
+
+# Force React Native CLI mode
+export FORCE_PROJECT_TYPE="react-native-cli"
+npx react-native-device-runner
+```
+
 ## 🎯 Example Usage
 
 ```bash
@@ -154,15 +168,23 @@ If you encounter errors related to Metro bundler or Expo CLI internals like:
 - `Package subpath './src/lib/TerminalReporter' is not defined by 'exports'`
 - `Cannot find module 'metro/src/lib/TerminalReporter'`
 
-Try running with the `--no-bundler` option:
+Try one of these solutions:
+
+1. Force React Native CLI mode:
 
 ```bash
-# For Expo projects
+export FORCE_PROJECT_TYPE="react-native-cli"
+npx react-native-device-runner
+```
+
+2. Run with the `--no-bundler` option (for Expo projects):
+
+```bash
 npx expo run:ios --device YOUR_DEVICE_ID --no-bundler
 npx expo run:android --device YOUR_DEVICE_ID --no-bundler
 ```
 
-Or update your Metro and Expo dependencies to compatible versions:
+3. Update your Metro and Expo dependencies to compatible versions:
 
 ```bash
 npx expo install metro metro-resolver
