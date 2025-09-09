@@ -1,20 +1,20 @@
-import { Command } from 'commander';
-import { ConfigLoader } from './config';
-import { DeviceDetector } from './device-detector';
-import { ExpoRunner } from './runner';
-import { Logger } from './logger';
-import { RunOptions } from './types';
-import packageJson from '../package.json';
+import { Command } from "commander";
+import { ConfigLoader } from "./config";
+import { DeviceDetector } from "./device-detector";
+import { AppRunner } from "./runner";
+import { Logger } from "./logger";
+import { RunOptions } from "./types";
+import packageJson from "../package.json";
 
-class ExpoDeviceRunner {
+class DeviceRunner {
   private configLoader: ConfigLoader;
   private deviceDetector: typeof DeviceDetector;
-  private runner: ExpoRunner;
+  private runner: AppRunner;
 
   constructor() {
     this.configLoader = new ConfigLoader();
     this.deviceDetector = DeviceDetector;
-    this.runner = new ExpoRunner(this.configLoader.getConfig());
+    this.runner = new AppRunner(this.configLoader.getConfig());
   }
 
   async run(options: RunOptions = {}): Promise<void> {
@@ -23,19 +23,19 @@ class ExpoDeviceRunner {
     const devices = this.deviceDetector.findDevices();
     const { ios, android } = devices;
 
-    // 두 기기 모두 연결된 경우
+    // Both devices connected
     if (ios && android) {
-      if (options.prefer === 'android') {
-        Logger.info('두 기기 모두 연결됨. Android 우선 실행합니다.');
+      if (options.prefer === "android") {
+        Logger.info("Both devices connected. Running Android first.");
         this.runner.runAndroidOnDevice(android);
       } else {
-        Logger.info('두 기기 모두 연결됨. iOS 우선 실행합니다.');
+        Logger.info("Both devices connected. Running iOS first.");
         this.runner.runIosOnDevice(ios);
       }
       return;
     }
 
-    // 단일 기기 연결
+    // Single device connected
     if (ios) {
       this.runner.runIosOnDevice(ios);
       return;
@@ -46,40 +46,44 @@ class ExpoDeviceRunner {
       return;
     }
 
-    // 기기 없음
-    Logger.error('연결된 물리 기기가 없습니다.');
-    Logger.info('iOS: Xcode에서 기기 신뢰 설정을 확인하세요');
-    Logger.info('Android: USB 디버깅이 활성화되어 있는지 확인하세요');
+    // No devices
+    Logger.error("No physical devices connected.");
+    Logger.info("iOS: Check device trust settings in Xcode");
+    Logger.info("Android: Make sure USB debugging is enabled");
     process.exit(2);
   }
 }
 
-// CLI 인터페이스
+// CLI interface
 function createCLI(): void {
   const program = new Command();
 
   program
-    .name('expo-device-runner')
-    .description('🚀 자동 기기 감지 & React Native/Expo 앱 실행 스크립트')
+    .name("react-native-device-runner")
+    .description("🚀 Auto device detection & React Native/Expo app runner")
     .version(packageJson.version);
 
   program
-    .option('--prefer <platform>', '우선 실행할 플랫폼 (ios | android)', 'ios')
+    .option(
+      "--prefer <platform>",
+      "Preferred platform to run (ios | android)",
+      "ios"
+    )
     .action(async (options) => {
-      const runner = new ExpoDeviceRunner();
+      const runner = new DeviceRunner();
       await runner.run({
-        prefer: options.prefer as 'ios' | 'android'
+        prefer: options.prefer as "ios" | "android",
       });
     });
 
   program.parse();
 }
 
-// 모듈로 사용할 때
-export { ExpoDeviceRunner, ConfigLoader, DeviceDetector, ExpoRunner, Logger };
-export * from './types';
+// When used as a module
+export { DeviceRunner, ConfigLoader, DeviceDetector, AppRunner, Logger };
+export * from "./types";
 
-// CLI로 실행될 때
+// When run directly from CLI
 if (require.main === module) {
   createCLI();
 }
