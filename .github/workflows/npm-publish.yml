@@ -6,7 +6,7 @@ on:
       - main
 
 jobs:
-  publish-npm:
+  build-and-publish:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -15,7 +15,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Setup Node.js for NPM
+      - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: "18"
@@ -27,39 +27,29 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Fix package.json bin paths
-        run: npm pkg fix
-
-      - name: Configure npm authentication
-        run: |
-          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
-          echo "registry=https://registry.npmjs.org/" >> ~/.npmrc
-          echo "always-auth=true" >> ~/.npmrc
-
-      - name: Publish to NPM
+      # Check if we should publish to npm
+      - name: Check npm version
+        id: check-npm
         run: |
           PACKAGE_VERSION=$(node -p "require('./package.json').version")
-          VERSION_EXISTS=$(npm view react-native-device-runner@$PACKAGE_VERSION version || echo '')
-
+          VERSION_EXISTS=$(npm view react-native-device-runner@$PACKAGE_VERSION version 2>/dev/null || echo "")
           if [ -z "$VERSION_EXISTS" ]; then
-            echo "Publishing version $PACKAGE_VERSION to NPM..."
-            npm publish --access public
+            echo "Should publish to npm: yes"
+            echo "publish=true" >> $GITHUB_OUTPUT
           else
-            echo "Version $PACKAGE_VERSION already exists in NPM registry. Skipping publish."
+            echo "Version $PACKAGE_VERSION already exists in npm, skipping npm publish"
+            echo "publish=false" >> $GITHUB_OUTPUT
           fi
+          echo "version=$PACKAGE_VERSION" >> $GITHUB_OUTPUT
+
+      # Publish to npm if needed
+      - name: Publish to npm
+        if: steps.check-npm.outputs.publish == 'true'
+        run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-  publish-github:
-    needs: publish-npm
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
+      # Setup for GitHub Packages
       - name: Setup Node.js for GitHub Packages
         uses: actions/setup-node@v3
         with:
@@ -67,24 +57,27 @@ jobs:
           registry-url: "https://npm.pkg.github.com"
           scope: "@kdn0325"
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build
-        run: npm run build
-
-      - name: Fix package.json bin paths
-        run: npm pkg fix
-
-      - name: Configure GitHub Packages authentication
+      # Prepare package.json for GitHub Packages
+      - name: Update package.json for GitHub Packages
         run: |
-          echo "@kdn0325:registry=https://npm.pkg.github.com" > ~/.npmrc
-          echo "//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}" >> ~/.npmrc
+          VERSION=$(node -p "require('./package.json').version")
 
-      - name: Publish to GitHub Packages
-        run: |
-          PACKAGE_VERSION=$(node -p "require('./package.json').version")
-          echo "Publishing version $PACKAGE_VERSION to GitHub Packages..."
-          npm publish
+          # Temporarily create a scoped package name for GitHub Packages
+          # Change the name but keep the original content to reference later
+          cp package.json package.json.orig
+          jq '.name = "@kdn0325/react-native-device-runner"' package.json > tmp.json
+          mv tmp.json package.json
+
+          # Check if this version already exists in GitHub Packages
+          EXISTS=$(npm view @kdn0325/react-native-device-runner@$VERSION version 2>/dev/null || echo "")
+          if [ -z "$EXISTS" ]; then
+            echo "Publishing to GitHub Packages..."
+            npm publish
+          else
+            echo "Version $VERSION already exists in GitHub Packages, skipping"
+          fi
+
+          # Restore original package.json
+          mv package.json.orig package.json
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
