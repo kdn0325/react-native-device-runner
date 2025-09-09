@@ -1,6 +1,6 @@
 {
   "name": "react-native-device-runner",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "description": "🚀 Auto device detection & React Native/Expo app runner script",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
