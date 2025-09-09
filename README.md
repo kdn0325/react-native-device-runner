@@ -1,6 +1,6 @@
 # React Native Device Runner
 
-Automatically detects connected physical devices and runs your React Native or Expo app with a single command.
+Automatically detects connected physical devices and runs your React Native or Expo app with a single command. Works seamlessly with both Expo and React Native CLI projects.
 
 ## 📋 Requirements
 
@@ -19,7 +19,8 @@ Automatically detects connected physical devices and runs your React Native or E
 ### Common
 
 - Node.js & npm or pnpm
-- Expo CLI (`npx expo`) for Expo projects
+- For Expo projects: Expo SDK installed
+- For React Native CLI projects: React Native CLI installed
 - `jq` (optional, for advanced JSON parsing)
 
 ## 🚀 Installation & Usage
@@ -31,7 +32,7 @@ Automatically detects connected physical devices and runs your React Native or E
 npx react-native-device-runner
 
 # Prefer Android
-tnpx react-native-device-runner --prefer android
+npx react-native-device-runner --prefer android
 
 # Prefer iOS
 npx react-native-device-runner --prefer ios
@@ -100,7 +101,7 @@ npx react-native-device-runner
 $ npx react-native-device-runner
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                React Native Device Runner                             │
+│                🚀 React Native Device Runner                          │
 │              Auto Device Detection & Runner Script                         │
 └─────────────────────────────────────────────────────────────────────────────┘
 
@@ -117,7 +118,7 @@ $ npx react-native-device-runner
 📱 Device UDID: a64e6f3a22df699e4df42ec9aa462eeeae7c8be4
 📱 Scheme: myapp
 📱 Configuration: Debug
-📋 Running expo run:ios...
+📋 Running with Expo on iOS device...
 ```
 
 ## 📝 Configuration Variables
@@ -133,7 +134,39 @@ $ npx react-native-device-runner
 | `AOS_MODULE`        | Android module name     | `app`        | `app`                   |
 | `AOS_VARIANT`       | Android build variant   | `debug`      | `release`               |
 
-## 🛠 Troubleshooting
+## Project Type Detection
+
+React Native Device Runner automatically detects whether your project is using Expo or React Native CLI based on several factors:
+
+1. **Package Dependencies**: Checks if `expo` is listed in your package.json dependencies
+2. **Configuration Files**: Looks for Expo-specific files like app.json with an expo section
+3. **Directory Structure**: Checks for the presence of ios/ and android/ folders
+4. **Command Availability**: Verifies that the necessary CLI tools are installed
+
+The tool will optimize the build and run commands based on the detected project type. If automatic detection fails, it defaults to React Native CLI mode.
+
+## 🚫 Troubleshooting
+
+### Metro/Expo compatibility errors
+
+If you encounter errors related to Metro bundler or Expo CLI internals like:
+
+- `Package subpath './src/lib/TerminalReporter' is not defined by 'exports'`
+- `Cannot find module 'metro/src/lib/TerminalReporter'`
+
+Try running with the `--no-bundler` option:
+
+```bash
+# For Expo projects
+npx expo run:ios --device YOUR_DEVICE_ID --no-bundler
+npx expo run:android --device YOUR_DEVICE_ID --no-bundler
+```
+
+Or update your Metro and Expo dependencies to compatible versions:
+
+```bash
+npx expo install metro metro-resolver
+```
 
 ### iOS device not detected
 
