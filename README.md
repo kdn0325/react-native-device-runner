@@ -1,4 +1,4 @@
-# �� React Native Device Runner
+# React Native Device Runner
 
 자동으로 연결된 물리 기기를 감지하고 Expo 앱을 실행하는 스마트 스크립트입니다.
 
@@ -178,10 +178,8 @@ IOS_SCHEME="production" IOS_CONFIGURATION="Release" ./script/find-run-device.sh
 
 이 프로젝트는 MIT 라이선스 하에 배포됩니다. 자세한 내용은 [LICENSE](LICENSE) 파일을 참조하세요.
 
-## 🙏 감사의 말
-
-- [Expo](https://expo.dev/) - 훌륭한 React Native 개발 플랫폼
-- [React Native](https://reactnative.dev/) - 크로스 플랫폼 모바일 개발 프레임워크
+- [Expo](https://expo.dev/)
+- [React Native](https://reactnative.dev/)  
 
 ---
 
