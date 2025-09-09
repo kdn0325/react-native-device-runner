@@ -1,6 +1,6 @@
 {
   "name": "react-native-device-runner",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "🚀 Auto device detection & React Native/Expo app runner script",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -33,12 +33,16 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/react-native-device-runner.git"
+    "url": "git+https://github.com/kdn0325/react-native-device-runner.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/react-native-device-runner/issues"
+    "url": "https://github.com/kdn0325/react-native-device-runner/issues"
   },
-  "homepage": "https://github.com/yourusername/react-native-device-runner#readme",
+  "homepage": "https://github.com/kdn0325/react-native-device-runner#readme",
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "@kdn0325:registry": "https://npm.pkg.github.com"
+  },
   "engines": {
     "node": ">=16.0.0"
   },
