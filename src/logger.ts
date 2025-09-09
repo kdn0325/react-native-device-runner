@@ -55,7 +55,7 @@ export class Logger {
 
   static separator(): void {
     console.log(
-      chalk.cyan(
+      chalk.gray(
         "──────────────────────────────────────────────────────────────────────────────"
       )
     );
