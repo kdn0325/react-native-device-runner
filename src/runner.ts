@@ -123,13 +123,8 @@ export class AppRunner {
     Logger.separator();
     Logger.success("iOS device found! Preparing to run...");
     Logger.device(`Device UDID: ${device.udid}`);
-
-    if (this.config.iosScheme) {
-      Logger.device(`Scheme: ${this.config.iosScheme}`);
-    }
-    if (this.config.iosConfiguration) {
-      Logger.device(`Configuration: ${this.config.iosConfiguration}`);
-    }
+    Logger.device(`Scheme: ${this.config.iosScheme || "Default"}`);
+    Logger.device(`Configuration: Debug`);
 
     if (!this.hasCommand("npx")) {
       Logger.error("npx is required");
@@ -150,9 +145,10 @@ export class AppRunner {
       args = ["react-native", "run-ios", "--udid", device.udid];
     }
 
+    args.push("--configuration", "Debug");
+
+    // Add scheme if provided
     if (this.config.iosScheme) args.push("--scheme", this.config.iosScheme);
-    if (this.config.iosConfiguration)
-      args.push("--configuration", this.config.iosConfiguration);
 
     this.executeCommand("npx", args);
   }
@@ -165,6 +161,7 @@ export class AppRunner {
     Logger.separator();
     Logger.success("Android device found! Preparing to run...");
     Logger.device(`Device Serial: ${device.serial}`);
+    Logger.device(`Using variant: debug`);
 
     if (!this.hasCommand("npx")) {
       Logger.error("npx is required");
@@ -185,10 +182,7 @@ export class AppRunner {
       args = ["react-native", "run-android", "--deviceId", device.serial];
     }
 
-    if (this.config.androidVariant) {
-      args.push(`--variant=${this.config.androidVariant}`);
-      Logger.device(`Using variant: ${this.config.androidVariant}`);
-    }
+    args.push("--mode=debug");
 
     this.executeCommand("npx", args);
   }
@@ -276,13 +270,12 @@ export class AppRunner {
       if (platform === "ios") {
         if (this.config.iosScheme)
           fallbackArgs.push("--scheme", this.config.iosScheme);
-        if (this.config.iosConfiguration)
-          fallbackArgs.push("--configuration", this.config.iosConfiguration);
+
+        fallbackArgs.push("--configuration", "Debug");
       }
 
-      if (platform === "android" && this.config.androidVariant) {
-        fallbackArgs.push(`--variant=${this.config.androidVariant}`);
-        Logger.device(`Using variant: ${this.config.androidVariant}`);
+      if (platform === "android") {
+        fallbackArgs.push("--mode=debug");
       }
 
       const child = spawn("npx", fallbackArgs, {
