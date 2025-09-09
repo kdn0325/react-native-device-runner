@@ -1,4 +1,4 @@
-name: NPM Publish
+name: Publish Package
 
 on:
   push:
@@ -6,13 +6,13 @@ on:
       - main
 
 jobs:
-  publish:
+  publish-npm:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Setup Node.js
+      - name: Setup Node.js for NPM
         uses: actions/setup-node@v3
         with:
           node-version: "18"
@@ -24,22 +24,44 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Run tests
-        run: npm test || true
-
-      - name: Check version and publish
+      - name: Publish to NPM
         run: |
-          # Get version from package.json
           PACKAGE_VERSION=$(node -p "require('./package.json').version")
-
-          # Check if version exists in npm registry
           VERSION_EXISTS=$(npm view react-native-device-runner@$PACKAGE_VERSION version || echo '')
 
           if [ -z "$VERSION_EXISTS" ]; then
-            echo "Publishing version $PACKAGE_VERSION..."
-            npm publish
+            echo "Publishing version $PACKAGE_VERSION to NPM..."
+            npm publish --access public
           else
-            echo "Version $PACKAGE_VERSION already exists in npm registry. Skipping publish."
+            echo "Version $PACKAGE_VERSION already exists in NPM registry. Skipping publish."
           fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  publish-github:
+    needs: publish-npm
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js for GitHub Packages
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@kdn0325"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Publish to GitHub Packages
+        run: |
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          echo "Publishing version $PACKAGE_VERSION to GitHub Packages..."
+          npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
