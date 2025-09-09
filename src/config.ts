@@ -17,6 +17,33 @@ export class ConfigLoader {
 
   private detectProjectType(): void {
     try {
+      // Check if package.json exists and has dependencies
+      const packageJsonPath = join(process.cwd(), "package.json");
+      if (existsSync(packageJsonPath)) {
+        try {
+          const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8"));
+          const dependencies = {
+            ...packageJson.dependencies,
+            ...packageJson.devDependencies,
+          };
+
+          // First check if expo is installed
+          if (dependencies.expo) {
+            try {
+              // Verify the expo command works without requiring metro internals
+              execSync("npx expo --help", { stdio: "ignore" });
+              this.isExpo = true;
+              Logger.info("Detected as an Expo project");
+              return;
+            } catch (error) {
+              Logger.warning("Expo package found but expo CLI is not working");
+            }
+          }
+        } catch (error) {
+          Logger.warning("Failed to parse package.json");
+        }
+      }
+
       // Check if app.json or app.config.js file exists
       const appJsonPath = join(process.cwd(), "app.json");
       const appConfigPath = join(process.cwd(), "app.config.js");
@@ -27,9 +54,23 @@ export class ConfigLoader {
         existsSync(appConfigPath) ||
         existsSync(appConfigTsPath)
       ) {
-        // Check if expo command is working
+        // Check if the app.json contains expo configuration
+        if (existsSync(appJsonPath)) {
+          try {
+            const appJson = JSON.parse(readFileSync(appJsonPath, "utf8"));
+            if (appJson.expo) {
+              this.isExpo = true;
+              Logger.info("Detected as an Expo project from app.json");
+              return;
+            }
+          } catch (error) {
+            // Failed to parse app.json, continue checking
+          }
+        }
+
+        // If we can't determine from app.json, try running expo command
         try {
-          execSync("npx expo --version", { stdio: "ignore" });
+          execSync("npx expo --help", { stdio: "ignore" });
           this.isExpo = true;
           Logger.info("Detected as an Expo project");
           return;
@@ -38,8 +79,20 @@ export class ConfigLoader {
         }
       }
 
+      // Check for React Native CLI project
+      const iosDir = join(process.cwd(), "ios");
+      const androidDir = join(process.cwd(), "android");
+
+      if (existsSync(iosDir) || existsSync(androidDir)) {
+        this.isExpo = false;
+        Logger.info("Detected as a React Native CLI project");
+        return;
+      }
+
       this.isExpo = false;
-      Logger.info("Detected as a React Native CLI project");
+      Logger.warning(
+        "Could not determine project type with certainty, defaulting to React Native CLI"
+      );
     } catch (error) {
       this.isExpo = false;
       Logger.warning(
@@ -112,48 +165,93 @@ export class ConfigLoader {
     Logger.step("Reading Expo configuration...");
 
     try {
-      // Execute npx expo config --json
-      const configOutput = execSync("npx expo config --json", {
-        encoding: "utf8",
-        cwd: process.cwd(),
-        stdio: ["pipe", "pipe", "pipe"],
-      });
-
-      const expoConfig: ExpoConfig = JSON.parse(configOutput);
-
-      // Load settings from extra field
-      if (expoConfig.extra) {
-        this.config.iosScheme =
-          this.config.iosScheme || expoConfig.extra["IOS_SCHEME"];
-        this.config.iosConfiguration =
-          this.config.iosConfiguration || expoConfig.extra["IOS_CONFIGURATION"];
-        this.config.iosWorkspace =
-          this.config.iosWorkspace || expoConfig.extra["IOS_WORKSPACE"];
-        this.config.iosDerivedData =
-          this.config.iosDerivedData || expoConfig.extra["IOS_DERIVED_DATA"];
-        this.config.androidAppId =
-          this.config.androidAppId || expoConfig.extra["AOS_APP_ID"];
-        this.config.androidModule =
-          this.config.androidModule || expoConfig.extra["AOS_MODULE"];
-        this.config.androidVariant =
-          this.config.androidVariant || expoConfig.extra["AOS_VARIANT"];
+      // First try to read from app.json directly
+      const appJsonPath = join(process.cwd(), "app.json");
+      if (existsSync(appJsonPath)) {
+        try {
+          const appJson = JSON.parse(readFileSync(appJsonPath, "utf8"));
+          if (appJson.expo) {
+            this.processExpoConfig(appJson.expo);
+            Logger.success("Expo configuration loaded from app.json");
+            return;
+          }
+        } catch (error) {
+          Logger.warning("Failed to parse app.json, trying alternative method");
+        }
       }
 
-      // Load settings from default fields
-      if (expoConfig.ios?.bundleIdentifier) {
-        this.config.iosBundleId =
-          this.config.iosBundleId || expoConfig.ios.bundleIdentifier;
-      }
+      // If app.json approach failed, try using expo config command
+      try {
+        // Execute npx expo config --json with a timeout to prevent hanging
+        const configOutput = execSync("npx expo config --json", {
+          encoding: "utf8",
+          cwd: process.cwd(),
+          stdio: ["pipe", "pipe", "pipe"],
+          timeout: 10000, // 10 second timeout
+        });
 
-      if (expoConfig.android?.package && !this.config.androidAppId) {
-        this.config.androidAppId = expoConfig.android.package;
+        const expoConfig: ExpoConfig = JSON.parse(configOutput);
+        this.processExpoConfig(expoConfig);
+        Logger.success("Expo configuration loaded successfully");
+      } catch (error) {
+        // If expo config command fails, try reading package.json as fallback
+        Logger.warning(
+          "Failed to run expo config command, trying package.json"
+        );
+        this.tryLoadFromPackageJson();
       }
-
-      Logger.success("Expo configuration loaded successfully");
     } catch (error) {
       Logger.warning(
         "Failed to load Expo configuration. Using default values."
       );
+      this.tryLoadFromPackageJson();
+    }
+  }
+
+  private processExpoConfig(expoConfig: any): void {
+    // Load settings from extra field
+    if (expoConfig.extra) {
+      this.config.iosScheme =
+        this.config.iosScheme || expoConfig.extra["IOS_SCHEME"];
+      this.config.iosConfiguration =
+        this.config.iosConfiguration || expoConfig.extra["IOS_CONFIGURATION"];
+      this.config.iosWorkspace =
+        this.config.iosWorkspace || expoConfig.extra["IOS_WORKSPACE"];
+      this.config.iosDerivedData =
+        this.config.iosDerivedData || expoConfig.extra["IOS_DERIVED_DATA"];
+      this.config.androidAppId =
+        this.config.androidAppId || expoConfig.extra["AOS_APP_ID"];
+      this.config.androidModule =
+        this.config.androidModule || expoConfig.extra["AOS_MODULE"];
+      this.config.androidVariant =
+        this.config.androidVariant || expoConfig.extra["AOS_VARIANT"];
+    }
+
+    // Load settings from default fields
+    if (expoConfig.ios?.bundleIdentifier) {
+      this.config.iosBundleId =
+        this.config.iosBundleId || expoConfig.ios.bundleIdentifier;
+    }
+
+    if (expoConfig.android?.package && !this.config.androidAppId) {
+      this.config.androidAppId = expoConfig.android.package;
+    }
+  }
+
+  private tryLoadFromPackageJson(): void {
+    try {
+      const packageJsonPath = join(process.cwd(), "package.json");
+      if (existsSync(packageJsonPath)) {
+        const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8"));
+
+        if (packageJson.name && !this.config.iosScheme) {
+          this.config.iosScheme = packageJson.name;
+        }
+
+        Logger.success("Configuration loaded from package.json");
+      }
+    } catch (error) {
+      Logger.warning("Failed to load configuration from package.json");
     }
   }
 
