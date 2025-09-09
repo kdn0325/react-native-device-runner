@@ -138,7 +138,7 @@ export class AppRunner {
 
     let args: string[];
 
-    if (this.projectType === "expo") {
+    if (this.isExpo) {
       // Managed workflow uses expo run
       Logger.step("Running with Expo (managed) on iOS device...");
       args = ["expo", "run:ios", "--device", device.udid, "--no-bundler"];
@@ -173,7 +173,7 @@ export class AppRunner {
 
     let args: string[];
 
-    if (this.projectType === "expo") {
+    if (this.isExpo) {
       // Managed workflow uses expo run
       Logger.step("Running with Expo (managed) on Android device...");
       args = ["expo", "run:android", "--device", device.serial, "--no-bundler"];
