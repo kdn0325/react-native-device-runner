@@ -137,6 +137,7 @@ export class AppRunner {
       // Managed workflow uses expo run
       Logger.step("Running with Expo (managed) on iOS device...");
       args = ["expo", "run:ios", "--device", device.udid, "--no-bundler"];
+      args.push("--configuration", "Debug");
     } else {
       // React Native CLI or Expo bare workflow uses react-native run
       Logger.step(
@@ -144,8 +145,6 @@ export class AppRunner {
       );
       args = ["react-native", "run-ios", "--udid", device.udid];
     }
-
-    args.push("--configuration", "Debug");
 
     // Add scheme if provided
     if (this.config.iosScheme) args.push("--scheme", this.config.iosScheme);
